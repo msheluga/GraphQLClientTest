@@ -31,19 +31,19 @@ namespace GraphQLClientTest
 
         internal static void Run()
         {
-            string query = "{version { systemInformationId  databaseVersion  modifiedDate  versionDate}}";
+            var query = new StringContent("{\"query\":\"query Version { version {nodes {systemInformationId databaseVersion versionDate modifiedDate}}}\",\"variables\":{}}", null, "application/json");
             var response = SendGraphQLQuery(query).Result;
-            Task.FromResult(response.Data);
+            Task.FromResult(response);
         }
 
         //send out the http query
-        public static Task<GraphQLResponse<string>> SendGraphQLQuery(string query)
+        public static async Task<dynamic> SendGraphQLQuery(StringContent query)
         {
-            GraphQLResponse<string> response = new();
+            string responseString = string.Empty;
 
             try
             {
-                using HttpClient client = new();
+                using HttpClient client = new HttpClient();
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(
                     new MediaTypeWithQualityHeaderValue("application/json"));
@@ -51,36 +51,37 @@ namespace GraphQLClientTest
                 var request = BuildHttpMessage(query, client);
 
 
-                using (var jsonResponse = client.SendAsync(request).Result)
-                {
-                    string responseString = jsonResponse.Content.ReadAsStringAsync().Result;
-                    response = JsonConvert.DeserializeObject<GraphQLResponse<string>>(responseString);
-                }
+                var jsonResponse = await client.PostAsync("https://localhost/graphQL/", query);
+                jsonResponse.EnsureSuccessStatusCode();
+                responseString = jsonResponse.Content.ReadAsStringAsync().Result;
+                Console.WriteLine(responseString);
+                
             }
             catch (Exception ex)
             {
-                response = new GraphQLResponse<string>();
-            }
-            return Task.FromResult(response);
+                Console.WriteLine(ex.ToString());
+                
+            }           
+            return Task.FromResult(JsonConvert.DeserializeObject(responseString));
         }
 
-        private static HttpRequestMessage BuildHttpMessage(string query, HttpClient httpClient)
+        private static HttpRequestMessage BuildHttpMessage(StringContent query, HttpClient httpClient)
         {
-            var request = new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-                Content = new StringContent(query, Encoding.UTF8, "application/json"),
+            var request = new HttpRequestMessage(HttpMethod.Post, httpClient.BaseAddress);
 
-            };
 
             string method = HttpMethod.Post.ToString();
             string encodedPathandQuery = httpClient.BaseAddress?.PathAndQuery ?? "";
-            string contentMD5 = query.ComputeMd5Hash();
+            string contentMD5 = query.ToString().ComputeMd5Hash();
             string authorizationHeader = GenerateAuthHeader(contentMD5, method, encodedPathandQuery);
+                                  
+            
+            query.Headers.ContentMD5 = Convert.FromBase64String(contentMD5);
+            httpClient.DefaultRequestHeaders.Add("Date", DateTime.Now.ToString("R"));
+            httpClient.DefaultRequestHeaders.Add("Authorization", authorizationHeader);
 
-            request.Headers.Add("Authorization", authorizationHeader);
-            request.Content.Headers.Add("Content-MD5", contentMD5);
-
+            request.Content = query;           
+            
             return request;
         }
 
