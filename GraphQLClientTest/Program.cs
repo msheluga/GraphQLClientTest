@@ -12,7 +12,7 @@ internal class GraphQLClientText
 
     static void Main(string[] args)
     { 
-        Console.WriteLine("1. Hit any key to send a message");
+        Console.WriteLine("Hit any key to send a message");
         string response;
         response = Console.ReadLine();
 
