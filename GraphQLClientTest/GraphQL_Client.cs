@@ -48,7 +48,7 @@ namespace GraphQLClientTest
                 client.DefaultRequestHeaders.Accept.Add(
                     new MediaTypeWithQualityHeaderValue("application/json"));
                 client.BaseAddress = new Uri("https://localhost/graphQL/");
-                var request = BuildHttpMessage(query, client);
+                BuildHttpMessage(query, client);
 
 
                 var jsonResponse = await client.PostAsync("https://localhost/graphQL/", query);
@@ -65,24 +65,18 @@ namespace GraphQLClientTest
             return Task.FromResult(JsonConvert.DeserializeObject(responseString));
         }
 
-        private static HttpRequestMessage BuildHttpMessage(StringContent query, HttpClient httpClient)
+        private static void BuildHttpMessage(StringContent query, HttpClient httpClient)
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, httpClient.BaseAddress);
-
-
             string method = HttpMethod.Post.ToString();
             string encodedPathandQuery = httpClient.BaseAddress?.PathAndQuery ?? "";
             string contentMD5 = query.ToString().ComputeMd5Hash();
             string authorizationHeader = GenerateAuthHeader(contentMD5, method, encodedPathandQuery);
-                                  
+                                 
             
             query.Headers.ContentMD5 = Convert.FromBase64String(contentMD5);
             httpClient.DefaultRequestHeaders.Add("Date", DateTime.Now.ToString("R"));
             httpClient.DefaultRequestHeaders.Add("Authorization", authorizationHeader);
 
-            request.Content = query;           
-            
-            return request;
         }
 
         //generate the Hmac auth header 
